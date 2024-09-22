@@ -14,4 +14,8 @@ ok(eval "use Proto::Main::Test;1;");
 is(Proto::Main::Test->message_descriptor()->full_name(), 'main.Test');
 is(Proto::Foo::Bar->message_descriptor()->full_name(), 'foo.Bar');
 
+my $pb = Proto::Main::Simple->new();
+$pb->set_name("foo");
+is($pb->get_name(), "foo");
+
 done_testing();
