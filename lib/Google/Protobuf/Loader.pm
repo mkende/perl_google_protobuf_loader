@@ -5,6 +5,7 @@ use warnings;
 use utf8;
 
 use Carp;
+use English;
 use File::Spec::Functions 'catfile';
 use Google::ProtocolBuffers::Dynamic;
 
@@ -19,10 +20,10 @@ sub import {
   return;
 }
 
-# Search for the given proto file if the @INC dirs and load it if found.
+# Search for the given proto file if the @INC directories and load it if found.
 sub use_proto_file_hook {
-  # The first arg is ourselves, this is the calling convention for references
-  # added to @INC.
+  # The first argument is ourselves, this is the calling convention for
+  # references added to @INC.
   my (undef, $module_name) = @_;
   return unless $module_name =~ s{^Proto/(.+)\.pm$}{$1.proto};
   return search_and_include($module_name);
@@ -30,6 +31,7 @@ sub use_proto_file_hook {
 
 my %SEARCH_PROTO;
 my %INC_PROTO;
+
 sub search_and_include {
   my ($file_name) = @_;
   return \'1;' if $INC_PROTO{$file_name};
@@ -52,33 +54,39 @@ sub search_and_include {
 #
 # Succeeds (and returns nothing) or dies.
 my $dyn_pb = Google::ProtocolBuffers::Dynamic->new();
+
 sub load_proto_file {
   my ($full_file_name, $rel_file_name) = @_;
   my $content = read_file($full_file_name);
   # Unfortunately, the Google::ProtocolBuffers::Dynamic module does not support
   # using the root package.
-  die "No package definition in '${rel_file_name}'" unless $content =~ m/^\s*package ([a-zA-Z0-9._]+)\s*;/m;
+  if ($content !~ m/^\s* package \s* ([a-zA-Z0-9._]+) \s* ;/mx) {
+    croak "No package definition in '${rel_file_name}'";
+  }
   my $package = $1;
-  while ($content =~ m{^\s*import\s*"([a-zA-Z0-9._/]+)"\s*;}mg) {
+  while ($content =~ m{^\s* import \s* " ([a-zA-Z0-9._/]+) " \s* ;}mgx) {
     search_and_include($1);
   }
   $dyn_pb->load_string($rel_file_name, $content);
   my $prefix = $package =~ s/(^|\.|_)(.)/($1 eq '.' ? '::' : '').uc($2)/egr;
-  $dyn_pb->map({ package => $package, prefix => "Proto::${prefix}" });
+  $dyn_pb->map({package => $package, prefix => "Proto::${prefix}"});
   return;
 }
 
 sub read_file {
   my ($file) = @_;
-  open my $fh, "<:encoding(UTF-8)", $file or die "Cannot open file '${file}' for reading: $!\n";
+  open my $fh, '<:encoding(UTF-8)', $file
+      or croak "Cannot open file '${file}' for reading: ${ERRNO}\n";
   my $data;
   {
-    local $/ = undef;
+    local $RS = undef;
     $data = <$fh>;
   }
-  close $fh or die "Cannot close file '${file}' after read: $!\n";
+  close $fh or croak "Cannot close file '${file}' after read: ${ERRNO}\n";
   return $data;
 }
+
+1;
 
 __END__
 
