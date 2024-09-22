@@ -18,3 +18,5 @@ ENV PERL_MM_USE_DEFAULT=1
 RUN perlbrew init
 
 # End of the template. You can add custom content below this line.
+
+sudo apt-get install libprotoc-dev
