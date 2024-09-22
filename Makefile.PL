@@ -13,6 +13,7 @@ WriteMakefile(
     DISTNAME         => 'Google-Protobuf-Loader',
     AUTHOR           => q{Mathias Kende <mathias@cpan.org>},
     VERSION_FROM     => 'lib/Google/Protobuf/Loader.pm',
+    ABSTRACT         => q{Automatically load .proto file using the standard "use" syntax.},
     LICENSE          => 'mit',
     MIN_PERL_VERSION => '5.026',
     MAN3PODS         => {},
