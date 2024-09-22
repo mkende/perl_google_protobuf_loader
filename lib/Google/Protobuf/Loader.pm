@@ -24,7 +24,20 @@ our $VERSION = '0.01';
 # - Support for non UTF-8 encoding in the input file.
 # - Custom search path ignoring @INC (or in addition to @INC).
 
-sub import {
+my %package_options;
+
+sub import {  ## no critic (RequireArgUnpacking)
+  my (undef) = shift @_;  # This is the package being imported, so our self.
+
+  my $calling_pkg_name = caller(0);
+
+  while (defined (my $arg = shift)) {
+    if ($arg eq 'map_options') {
+      $package_options{$calling_pkg_name} = shift;
+    } else {
+      croak "Unknown parameter: $arg";
+    }
+  }
   push @INC, \&use_proto_file_hook;
   return;
 }
@@ -35,14 +48,15 @@ sub use_proto_file_hook {
   # references added to @INC.
   my (undef, $module_name) = @_;
   return unless $module_name =~ s{^Proto/(.+)\.pm$}{$1.proto};
-  return search_and_include($module_name);
+  my $calling_pkg_name = caller(0);
+  return search_and_include($module_name, $calling_pkg_name);
 }
 
 my %SEARCH_PROTO;
 my %INC_PROTO;
 
 sub search_and_include {
-  my ($file_name) = @_;
+  my ($file_name, $calling_pkg_name) = @_;
   return \'1;' if $INC_PROTO{$file_name};
   croak "Infinite loop while loading ${file_name}" if exists $SEARCH_PROTO{$file_name};
   $SEARCH_PROTO{$file_name} = 1;
@@ -50,7 +64,7 @@ sub search_and_include {
     next if (!defined $inc || ref $inc);
     my $test_file_path = catfile($inc, $file_name);
     next unless -f $test_file_path;
-    load_proto_file($test_file_path, $file_name);
+    load_proto_file($test_file_path, $file_name, $calling_pkg_name);
     $INC_PROTO{$file_name} = 1;
     delete $SEARCH_PROTO{$file_name};
     return \'1;';
@@ -65,7 +79,7 @@ sub search_and_include {
 my $dyn_pb = Google::ProtocolBuffers::Dynamic->new();
 
 sub load_proto_file {
-  my ($full_file_name, $rel_file_name) = @_;
+  my ($full_file_name, $rel_file_name, $calling_pkg_name) = @_;
   my $content = read_file($full_file_name);
   # Unfortunately, the Google::ProtocolBuffers::Dynamic module does not support
   # using the root package.
@@ -74,11 +88,15 @@ sub load_proto_file {
   }
   my $package = $1;
   while ($content =~ m{^\s* import \s* " ([a-zA-Z0-9._/]+) " \s* ;}mgx) {
-    search_and_include($1);
+    search_and_include($1, $calling_pkg_name);
   }
   $dyn_pb->load_string($rel_file_name, $content);
   my $prefix = $package =~ s/(^|\.|_)(.)/($1 eq '.' ? '::' : '').uc($2)/egr;
-  $dyn_pb->map({package => $package, prefix => "Proto::${prefix}"});
+  my %options;
+  if (exists $package_options{$calling_pkg_name}) {
+    %options = (options => $package_options{$calling_pkg_name});
+  }
+  $dyn_pb->map({package => $package, prefix => "Proto::${prefix}", %options});
   return;
 }
 
@@ -154,7 +172,21 @@ and L<Google::ProtocolBuffers::Dynamic::Message>.
 
 =head1 OPTIONS
 
-There are currently no options for this module.
+You can pass options to the module when it is loaded initially:
+
+  use Google::Protobuf::Loader option => value, ...;
+
+Currently, a single option is supported: C<map_options> whose value must be a
+hash reference containing options passed to the
+L<map call|Google::ProtocolBuffers::Dynamic/"map"> used with
+L<Google::ProtocolBuffers::Dynamic> to load the proto. The list of
+L<supported options is here|Google::ProtocolBuffers::Dynamic/"OPTIONS">.
+
+Note that this option will apply only for F<.proto> files loaded from the same
+package as where the option is set. However, any F<.proto> file is only loaded
+once in a program, the first time that is is required. So you should either pass
+the same options all the time or ensure that you only loads proto files that are
+not used anywhere else.
 
 =head1 AUTHOR
 
