@@ -63,3 +63,12 @@ minimum_regex_length_to_complain_about = 30
 
 # Far too many false positive.
 [-RegularExpressions::ProhibitCaptureWithoutTest]
+
+# That global variable must not be localized.
+[Variables::RequireLocalizedPunctuationVars]
+allow = %^H
+
+# That variable has no "English" equivalent ($^H instead of %^H because the
+# policy doesn’t understand hash access).
+[Variables::ProhibitPunctuationVars]
+allow = $^H

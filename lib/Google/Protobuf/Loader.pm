@@ -26,10 +26,13 @@ our $VERSION = '0.01';
 
 my %package_options;
 
+my $IS_USED_HINT_KEY = 'Google::Protobuf::Loader/is_used';
+
 sub import {  ## no critic (RequireArgUnpacking)
   my (undef) = shift @_;  # This is the package being imported, so our self.
 
   my $calling_pkg_name = caller(0);
+  $^H{$IS_USED_HINT_KEY} = 1;
 
   while (defined (my $arg = shift)) {
     if ($arg eq 'map_options') {
@@ -47,6 +50,7 @@ sub use_proto_file_hook {
   # The first argument is ourselves, this is the calling convention for
   # references added to @INC.
   my (undef, $module_name) = @_;
+  return unless $^H{$IS_USED_HINT_KEY};
   return unless $module_name =~ s{^Proto/(.+)\.pm$}{$1.proto};
   my $calling_pkg_name = caller(0);
   return search_and_include($module_name, $calling_pkg_name);
